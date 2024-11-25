@@ -6,15 +6,14 @@
 // it under the terms of the GNU GPLv3, with additional terms.
 // See the README file, included in this distribution, for details.
 
-package micropolisj.gui;
-
+package com.maehem.podunk.gui;
+import com.maehem.podunk.engine.Micropolis;
+import com.maehem.podunk.engine.MicropolisMessage;
+import com.maehem.podunk.engine.ZoneStatus;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 import javax.swing.*;
-
-import micropolisj.engine.*;
-import static micropolisj.gui.ColorParser.parseColor;
 
 public class NotificationPane extends JPanel
 {
@@ -66,7 +65,7 @@ public class NotificationPane extends JPanel
 		viewportContainer.add(mapViewport, BorderLayout.CENTER);
 
 		mapView = new MicropolisDrawingArea(engine);
-		mapViewport.setView(mapView);
+//		mapViewport.setView(mapView);
 	}
 
 	private void onDismissClicked()
@@ -76,15 +75,15 @@ public class NotificationPane extends JPanel
 
 	void setPicture(Micropolis engine, int xpos, int ypos)
 	{
-		Dimension sz = VIEWPORT_SIZE;
-
-		mapView.setEngine(engine);
-		Rectangle r = mapView.getTileBounds(xpos,ypos);
-
-		mapViewport.setViewPosition(new Point(
-			r.x + r.width/2 - sz.width/2,
-			r.y + r.height/2 - sz.height/2
-			));
+//		Dimension sz = VIEWPORT_SIZE;
+//
+//		mapView.setEngine(engine);
+//		Rectangle r = mapView.getTileBounds(xpos,ypos);
+//
+//		mapViewport.setViewPosition(new Point(
+//			r.x + r.width/2 - sz.width/2,
+//			r.y + r.height/2 - sz.height/2
+//			));
 	}
 
 	public void showMessage(Micropolis engine, MicropolisMessage msg, int xpos, int ypos)
@@ -97,7 +96,7 @@ public class NotificationPane extends JPanel
 		}
 
 		headerLbl.setText(mstrings.getString(msg.name()+".title"));
-		headerLbl.setBackground(parseColor(mstrings.getString(msg.name()+".color")));
+//		headerLbl.setBackground(parseColor(mstrings.getString(msg.name()+".color")));
 
 		JLabel myLabel = new JLabel("<html><p>"+
 			mstrings.getString(msg.name()+".detail") + "</p></html>");

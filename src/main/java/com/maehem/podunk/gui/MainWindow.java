@@ -6,24 +6,20 @@
 // it under the terms of the GNU GPLv3, with additional terms.
 // See the README file, included in this distribution, for details.
 
-package micropolisj.gui;
-
+package com.maehem.podunk.gui;
+import com.maehem.podunk.engine.*;
+import com.maehem.podunk.util.TranslationTool;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.net.URL;
 import java.text.MessageFormat;
 import java.text.NumberFormat;
-import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.prefs.*;
 import javax.sound.sampled.*;
 import javax.swing.*;
 import javax.swing.Timer;
 import javax.swing.filechooser.FileNameExtensionFilter;
-
-import micropolisj.engine.*;
-import micropolisj.util.TranslationTool;
 
 public class MainWindow extends JFrame
 	implements Micropolis.Listener, EarthquakeListener
@@ -55,11 +51,11 @@ public class MainWindow extends JFrame
 
 	static ImageIcon appIcon;
 	static {
-		appIcon = new ImageIcon(MainWindow.class.getResource("/micropolism.png"));
+            appIcon = new ImageIcon(MainWindow.class.getResource("/images/micropolism.png"));
 	}
 
-	static ResourceBundle strings = ResourceBundle.getBundle("micropolisj.GuiStrings");
-	static final String PRODUCT_NAME = strings.getString("PRODUCT");
+    static ResourceBundle strings = ResourceBundle.getBundle("i18n.GuiStrings");
+    static final String PRODUCT_NAME = strings.getString("PRODUCT");
 
 	public MainWindow()
 	{
@@ -68,222 +64,222 @@ public class MainWindow extends JFrame
 
 	public MainWindow(Micropolis engine)
 	{
-		setIconImage(appIcon.getImage());
-
-		this.engine = engine;
-
-		JPanel mainArea = new JPanel(new BorderLayout());
-		add(mainArea, BorderLayout.CENTER);
-
-		drawingArea = new MicropolisDrawingArea(engine);
-		drawingAreaScroll = new JScrollPane(drawingArea);
-		mainArea.add(drawingAreaScroll);
-
-		makeMenu();
-		JToolBar tb = makeToolbar();
-		mainArea.add(tb, BorderLayout.WEST);
-
-		Box evalGraphsBox = new Box(BoxLayout.Y_AXIS);
-		mainArea.add(evalGraphsBox, BorderLayout.SOUTH);
-
-		graphsPane = new GraphsPane(engine);
-		graphsPane.setVisible(false);
-		evalGraphsBox.add(graphsPane);
-
-		evaluationPane = new EvaluationPane(engine);
-		evaluationPane.setVisible(false);
-		evalGraphsBox.add(evaluationPane, BorderLayout.SOUTH);
-
-		JPanel leftPane = new JPanel(new GridBagLayout());
-		add(leftPane, BorderLayout.WEST);
-
-		GridBagConstraints c = new GridBagConstraints();
-		c.gridx = c.gridy = 0;
-		c.anchor = GridBagConstraints.SOUTHWEST;
-		c.insets = new Insets(4,4,4,4);
-		c.weightx = 1.0;
-
-		demandInd = new DemandIndicator();
-		leftPane.add(demandInd, c);
-
-		c.gridx = 1;
-		c.weightx = 0.0;
-		c.fill = GridBagConstraints.BOTH;
-		c.insets = new Insets(4, 20, 4, 4);
-
-		leftPane.add(makeDateFunds(), c);
-
-		c.gridx = 0;
-		c.gridy = 1;
-		c.gridwidth = 2;
-		c.weighty = 0.0;
-		c.anchor = GridBagConstraints.NORTH;
-		c.insets = new Insets(0,0,0,0);
-
-		JPanel mapViewContainer = new JPanel(new BorderLayout());
-		mapViewContainer.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-		leftPane.add(mapViewContainer, c);
-
-		JMenuBar mapMenu = new JMenuBar();
-		mapViewContainer.add(mapMenu, BorderLayout.NORTH);
-
-		JMenu zonesMenu = new JMenu(strings.getString("menu.zones"));
-		setupKeys(zonesMenu, "menu.zones");
-		mapMenu.add(zonesMenu);
-
-		zonesMenu.add(makeMapStateMenuItem("menu.zones.ALL", MapState.ALL));
-		zonesMenu.add(makeMapStateMenuItem("menu.zones.RESIDENTIAL", MapState.RESIDENTIAL));
-		zonesMenu.add(makeMapStateMenuItem("menu.zones.COMMERCIAL", MapState.COMMERCIAL));
-		zonesMenu.add(makeMapStateMenuItem("menu.zones.INDUSTRIAL", MapState.INDUSTRIAL));
-		zonesMenu.add(makeMapStateMenuItem("menu.zones.TRANSPORT", MapState.TRANSPORT));
-
-		JMenu overlaysMenu = new JMenu(strings.getString("menu.overlays"));
-		setupKeys(overlaysMenu, "menu.overlays");
-		mapMenu.add(overlaysMenu);
-
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POPDEN_OVERLAY", MapState.POPDEN_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.GROWTHRATE_OVERLAY", MapState.GROWTHRATE_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.LANDVALUE_OVERLAY", MapState.LANDVALUE_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.CRIME_OVERLAY", MapState.CRIME_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POLLUTE_OVERLAY", MapState.POLLUTE_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.TRAFFIC_OVERLAY", MapState.TRAFFIC_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POWER_OVERLAY", MapState.POWER_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.FIRE_OVERLAY", MapState.FIRE_OVERLAY));
-		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POLICE_OVERLAY", MapState.POLICE_OVERLAY));
-
-		mapMenu.add(Box.createHorizontalGlue());
-		mapLegendLbl = new JLabel();
-		mapMenu.add(mapLegendLbl);
-
-		mapView = new OverlayMapView(engine);
-		mapView.connectView(drawingArea, drawingAreaScroll);
-		mapViewContainer.add(mapView, BorderLayout.CENTER);
-
-		setMapState(MapState.ALL);
-
-		c.gridx = 0;
-		c.gridy = 2;
-		c.gridwidth = 2;
-		c.weighty = 1.0;
-		c.fill = GridBagConstraints.BOTH;
-		c.insets = new Insets(0,0,0,0);
-
-		messagesPane = new MessagesPane();
-		JScrollPane scroll2 = new JScrollPane(messagesPane);
-		scroll2.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-		scroll2.setPreferredSize(new Dimension(0,0));
-		scroll2.setMinimumSize(new Dimension(0,0));
-		leftPane.add(scroll2, c);
-
-		c.gridy = 3;
-		c.weighty = 0.0;
-		notificationPane = new NotificationPane(engine);
-		leftPane.add(notificationPane, c);
-
-		pack();
-		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-		setLocationRelativeTo(null);
-
-		InputMap inputMap = ((JComponent)getContentPane()).getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-		inputMap.put(KeyStroke.getKeyStroke("ADD"), "zoomIn");
-		inputMap.put(KeyStroke.getKeyStroke("shift EQUALS"), "zoomIn");
-		inputMap.put(KeyStroke.getKeyStroke("SUBTRACT"), "zoomOut");
-		inputMap.put(KeyStroke.getKeyStroke("MINUS"), "zoomOut");
-		inputMap.put(KeyStroke.getKeyStroke("ESCAPE"), "escape");
-
-		ActionMap actionMap = ((JComponent)getContentPane()).getActionMap();
-		actionMap.put("zoomIn", new AbstractAction() {
-			public void actionPerformed(ActionEvent evt) {
-				doZoom(1);
-			}
-			});
-		actionMap.put("zoomOut", new AbstractAction() {
-			public void actionPerformed(ActionEvent evt) {
-				doZoom(-1);
-			}
-			});
-		actionMap.put("escape", new AbstractAction() {
-			public void actionPerformed(ActionEvent evt) {
-				onEscapePressed();
-			}
-			});
-
-		MouseAdapter mouse = new MouseAdapter() {
-			public void mousePressed(MouseEvent ev)
-			{
-				try {
-					onToolDown(ev);
-				} catch (Throwable e) {
-					showErrorMessage(e);
-				}
-			}
-			public void mouseReleased(MouseEvent ev)
-			{
-				try {
-					onToolUp(ev);
-				} catch (Throwable e) {
-					showErrorMessage(e);
-				}
-			}
-			public void mouseDragged(MouseEvent ev)
-			{
-				try {
-					onToolDrag(ev);
-				} catch (Throwable e) {
-					showErrorMessage(e);
-				}
-			}
-			public void mouseMoved(MouseEvent ev)
-			{
-				try {
-					onToolHover(ev);
-				} catch (Throwable e) {
-					showErrorMessage(e);
-				}
-			}
-			public void mouseExited(MouseEvent ev)
-			{
-				try {
-					onToolExited(ev);
-				} catch (Throwable e) {
-					showErrorMessage(e);
-				}
-			}
-			public void mouseWheelMoved(MouseWheelEvent evt)
-			{
-				try {
-					onMouseWheelMoved(evt);
-				} catch (Throwable e) {
-					showErrorMessage(e);
-				}
-			}
-			};
-		drawingArea.addMouseListener(mouse);
-		drawingArea.addMouseMotionListener(mouse);
-		drawingArea.addMouseWheelListener(mouse);
-
-		addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent ev)
-			{
-				closeWindow();
-			}
-			public void windowClosed(WindowEvent ev)
-			{
-				onWindowClosed(ev);
-			}
-			});
-
-		Preferences prefs = Preferences.userNodeForPackage(MainWindow.class);
-		doSounds = prefs.getBoolean(SOUNDS_PREF, true);
-
-		// start things up
-		mapView.setEngine(engine);
-		engine.addListener(this);
-		engine.addEarthquakeListener(this);
-		reloadFunds();
-		reloadOptions();
-		startTimer();
-		makeClean();
+//		setIconImage(appIcon.getImage());
+//
+//		this.engine = engine;
+//
+//		JPanel mainArea = new JPanel(new BorderLayout());
+//		add(mainArea, BorderLayout.CENTER);
+//
+//		drawingArea = new MicropolisDrawingArea(engine);
+//		drawingAreaScroll = new JScrollPane(drawingArea);
+//		mainArea.add(drawingAreaScroll);
+//
+//		makeMenu();
+//		JToolBar tb = makeToolbar();
+//		mainArea.add(tb, BorderLayout.WEST);
+//
+//		Box evalGraphsBox = new Box(BoxLayout.Y_AXIS);
+//		mainArea.add(evalGraphsBox, BorderLayout.SOUTH);
+//
+//		graphsPane = new GraphsPane(engine);
+//		graphsPane.setVisible(false);
+//		evalGraphsBox.add(graphsPane);
+//
+//		evaluationPane = new EvaluationPane(engine);
+//		evaluationPane.setVisible(false);
+//		evalGraphsBox.add(evaluationPane, BorderLayout.SOUTH);
+//
+//		JPanel leftPane = new JPanel(new GridBagLayout());
+//		add(leftPane, BorderLayout.WEST);
+//
+//		GridBagConstraints c = new GridBagConstraints();
+//		c.gridx = c.gridy = 0;
+//		c.anchor = GridBagConstraints.SOUTHWEST;
+//		c.insets = new Insets(4,4,4,4);
+//		c.weightx = 1.0;
+//
+//		demandInd = new DemandIndicator();
+//		leftPane.add(demandInd, c);
+//
+//		c.gridx = 1;
+//		c.weightx = 0.0;
+//		c.fill = GridBagConstraints.BOTH;
+//		c.insets = new Insets(4, 20, 4, 4);
+//
+//		leftPane.add(makeDateFunds(), c);
+//
+//		c.gridx = 0;
+//		c.gridy = 1;
+//		c.gridwidth = 2;
+//		c.weighty = 0.0;
+//		c.anchor = GridBagConstraints.NORTH;
+//		c.insets = new Insets(0,0,0,0);
+//
+//		JPanel mapViewContainer = new JPanel(new BorderLayout());
+//		mapViewContainer.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+//		leftPane.add(mapViewContainer, c);
+//
+//		JMenuBar mapMenu = new JMenuBar();
+//		mapViewContainer.add(mapMenu, BorderLayout.NORTH);
+//
+//		JMenu zonesMenu = new JMenu(strings.getString("menu.zones"));
+//		setupKeys(zonesMenu, "menu.zones");
+//		mapMenu.add(zonesMenu);
+//
+//		zonesMenu.add(makeMapStateMenuItem("menu.zones.ALL", MapState.ALL));
+//		zonesMenu.add(makeMapStateMenuItem("menu.zones.RESIDENTIAL", MapState.RESIDENTIAL));
+//		zonesMenu.add(makeMapStateMenuItem("menu.zones.COMMERCIAL", MapState.COMMERCIAL));
+//		zonesMenu.add(makeMapStateMenuItem("menu.zones.INDUSTRIAL", MapState.INDUSTRIAL));
+//		zonesMenu.add(makeMapStateMenuItem("menu.zones.TRANSPORT", MapState.TRANSPORT));
+//
+//		JMenu overlaysMenu = new JMenu(strings.getString("menu.overlays"));
+//		setupKeys(overlaysMenu, "menu.overlays");
+//		mapMenu.add(overlaysMenu);
+//
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POPDEN_OVERLAY", MapState.POPDEN_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.GROWTHRATE_OVERLAY", MapState.GROWTHRATE_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.LANDVALUE_OVERLAY", MapState.LANDVALUE_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.CRIME_OVERLAY", MapState.CRIME_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POLLUTE_OVERLAY", MapState.POLLUTE_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.TRAFFIC_OVERLAY", MapState.TRAFFIC_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POWER_OVERLAY", MapState.POWER_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.FIRE_OVERLAY", MapState.FIRE_OVERLAY));
+//		overlaysMenu.add(makeMapStateMenuItem("menu.overlays.POLICE_OVERLAY", MapState.POLICE_OVERLAY));
+//
+//		mapMenu.add(Box.createHorizontalGlue());
+//		mapLegendLbl = new JLabel();
+//		mapMenu.add(mapLegendLbl);
+//
+//		mapView = new OverlayMapView(engine);
+//		mapView.connectView(drawingArea, drawingAreaScroll);
+//		mapViewContainer.add(mapView, BorderLayout.CENTER);
+//
+//		setMapState(MapState.ALL);
+//
+//		c.gridx = 0;
+//		c.gridy = 2;
+//		c.gridwidth = 2;
+//		c.weighty = 1.0;
+//		c.fill = GridBagConstraints.BOTH;
+//		c.insets = new Insets(0,0,0,0);
+//
+//		messagesPane = new MessagesPane();
+//		JScrollPane scroll2 = new JScrollPane(messagesPane);
+//		scroll2.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+//		scroll2.setPreferredSize(new Dimension(0,0));
+//		scroll2.setMinimumSize(new Dimension(0,0));
+//		leftPane.add(scroll2, c);
+//
+//		c.gridy = 3;
+//		c.weighty = 0.0;
+//		notificationPane = new NotificationPane(engine);
+//		leftPane.add(notificationPane, c);
+//
+//		pack();
+//		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+//		setLocationRelativeTo(null);
+//
+//		InputMap inputMap = ((JComponent)getContentPane()).getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+//		inputMap.put(KeyStroke.getKeyStroke("ADD"), "zoomIn");
+//		inputMap.put(KeyStroke.getKeyStroke("shift EQUALS"), "zoomIn");
+//		inputMap.put(KeyStroke.getKeyStroke("SUBTRACT"), "zoomOut");
+//		inputMap.put(KeyStroke.getKeyStroke("MINUS"), "zoomOut");
+//		inputMap.put(KeyStroke.getKeyStroke("ESCAPE"), "escape");
+//
+//		ActionMap actionMap = ((JComponent)getContentPane()).getActionMap();
+//		actionMap.put("zoomIn", new AbstractAction() {
+//			public void actionPerformed(ActionEvent evt) {
+//				doZoom(1);
+//			}
+//			});
+//		actionMap.put("zoomOut", new AbstractAction() {
+//			public void actionPerformed(ActionEvent evt) {
+//				doZoom(-1);
+//			}
+//			});
+//		actionMap.put("escape", new AbstractAction() {
+//			public void actionPerformed(ActionEvent evt) {
+//				onEscapePressed();
+//			}
+//			});
+//
+//		MouseAdapter mouse = new MouseAdapter() {
+//			public void mousePressed(MouseEvent ev)
+//			{
+//				try {
+//					onToolDown(ev);
+//				} catch (Throwable e) {
+//					showErrorMessage(e);
+//				}
+//			}
+//			public void mouseReleased(MouseEvent ev)
+//			{
+//				try {
+//					onToolUp(ev);
+//				} catch (Throwable e) {
+//					showErrorMessage(e);
+//				}
+//			}
+//			public void mouseDragged(MouseEvent ev)
+//			{
+//				try {
+//					onToolDrag(ev);
+//				} catch (Throwable e) {
+//					showErrorMessage(e);
+//				}
+//			}
+//			public void mouseMoved(MouseEvent ev)
+//			{
+//				try {
+//					onToolHover(ev);
+//				} catch (Throwable e) {
+//					showErrorMessage(e);
+//				}
+//			}
+//			public void mouseExited(MouseEvent ev)
+//			{
+//				try {
+//					onToolExited(ev);
+//				} catch (Throwable e) {
+//					showErrorMessage(e);
+//				}
+//			}
+//			public void mouseWheelMoved(MouseWheelEvent evt)
+//			{
+//				try {
+//					onMouseWheelMoved(evt);
+//				} catch (Throwable e) {
+//					showErrorMessage(e);
+//				}
+//			}
+//			};
+//		drawingArea.addMouseListener(mouse);
+//		drawingArea.addMouseMotionListener(mouse);
+//		drawingArea.addMouseWheelListener(mouse);
+//
+//		addWindowListener(new WindowAdapter() {
+//			public void windowClosing(WindowEvent ev)
+//			{
+//				closeWindow();
+//			}
+//			public void windowClosed(WindowEvent ev)
+//			{
+//				onWindowClosed(ev);
+//			}
+//			});
+//
+//		Preferences prefs = Preferences.userNodeForPackage(MainWindow.class);
+//		doSounds = prefs.getBoolean(SOUNDS_PREF, true);
+//
+//		// start things up
+//		mapView.setEngine(engine);
+//		engine.addListener(this);
+//		engine.addEarthquakeListener(this);
+//		reloadFunds();
+//		reloadOptions();
+//		startTimer();
+//		makeClean();
 	}
 
 	public void setEngine(Micropolis newEngine)
@@ -820,8 +816,8 @@ public class MainWindow extends JFrame
 	private void onSoundClicked()
 	{
 		doSounds = !doSounds;
-		Preferences prefs = Preferences.userNodeForPackage(MainWindow.class);
-		prefs.putBoolean(SOUNDS_PREF, doSounds);
+            //	Preferences prefs = Preferences.userNodeForPackage(MainWindow.class);
+            //	prefs.putBoolean(SOUNDS_PREF, doSounds);
 		reloadOptions();
 	}
 
@@ -1093,9 +1089,9 @@ public class MainWindow extends JFrame
 			stopTimer();
 		}
 
-		new NewCityDialog(this, !firstTime).setVisible(true);
+//            new NewCityDialog(this, !firstTime).setVisible(true);
 
-		if (timerEnabled) {
+            if (timerEnabled) {
 			startTimer();
 		}
 	}
@@ -1105,8 +1101,8 @@ public class MainWindow extends JFrame
 		if (!engine.testBounds(xpos, ypos))
 			return;
 
-		ZoneStatus z = engine.queryZoneStatus(xpos, ypos);
-		notificationPane.showZoneStatus(engine, xpos, ypos, z);
+//		ZoneStatus z = engine.queryZoneStatus(xpos, ypos);
+//		notificationPane.showZoneStatus(engine, xpos, ypos, z);
 	}
 
 	private void doZoom(int dir, Point mousePt)
@@ -1602,11 +1598,11 @@ public class MainWindow extends JFrame
 		if (afile == null)
 			return;
 
-		boolean isOnScreen = drawingAreaScroll.getViewport().getViewRect().contains(
-				drawingArea.getTileBounds(loc.x, loc.y)
-			);
-		if (sound == Sound.HONKHONK_LOW && !isOnScreen)
-			return;
+//		boolean isOnScreen = drawingAreaScroll.getViewport().getViewRect().contains(
+//				drawingArea.getTileBounds(loc.x, loc.y)
+//			);
+//		if (sound == Sound.HONKHONK_LOW && !isOnScreen)
+//			return;
 
 		try
 		{
@@ -1633,12 +1629,12 @@ public class MainWindow extends JFrame
 
 	void onViewEvaluationClicked()
 	{
-		evaluationPane.setVisible(true);
+            //evaluationPane.setVisible(true);
 	}
 
 	void onViewGraphClicked()
 	{
-		graphsPane.setVisible(true);
+            //graphsPane.setVisible(true);
 	}
 
 	private void showAutoBudget()
@@ -1658,9 +1654,9 @@ public class MainWindow extends JFrame
 			stopTimer();
 		}
 
-		BudgetDialog dlg = new BudgetDialog(this, getEngine());
-		dlg.setModal(true);
-		dlg.setVisible(true);
+//		BudgetDialog dlg = new BudgetDialog(this, getEngine());
+//		dlg.setModal(true);
+//		dlg.setVisible(true);
 
 		if (timerEnabled) {
 			startTimer();

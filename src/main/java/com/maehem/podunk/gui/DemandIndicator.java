@@ -6,14 +6,16 @@
 // it under the terms of the GNU GPLv3, with additional terms.
 // See the README file, included in this distribution, for details.
 
-package micropolisj.gui;
+package com.maehem.podunk.gui;
 
+import com.maehem.podunk.engine.CityLocation;
+import com.maehem.podunk.engine.Micropolis;
+import com.maehem.podunk.engine.MicropolisMessage;
+import com.maehem.podunk.engine.Sound;
 import java.awt.*;
 import java.awt.image.*;
 import java.net.URL;
 import javax.swing.*;
-
-import micropolisj.engine.*;
 
 public class DemandIndicator extends JComponent
 	implements Micropolis.Listener

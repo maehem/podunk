@@ -8,6 +8,7 @@
 
 package com.maehem.podunk.util;
 
+import com.maehem.podunk.engine.Micropolis;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
@@ -97,7 +98,7 @@ public class TranslationTool extends JFrame
 	{
 		try{
 
-		Class mclass = micropolisj.engine.Micropolis.class;
+                    Class mclass = Micropolis.class;
 		return new File(
 			mclass.getProtectionDomain()
 				.getCodeSource().getLocation().toURI().getPath()

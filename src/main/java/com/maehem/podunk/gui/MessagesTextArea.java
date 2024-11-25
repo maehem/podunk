@@ -7,36 +7,23 @@
 // See the README file, included in this distribution, for details.
 package com.maehem.podunk.gui;
 
-import com.maehem.podunk.engine.*;
+import com.maehem.podunk.engine.MicropolisMessage;
 import java.util.*;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
+import javafx.scene.control.TextArea;
 
-public class MessagesPane extends ScrollPane {
+public class MessagesTextArea extends TextArea {
 
-    private final ResourceBundle MSG;
-    private static final TextFlow messageFlow = new TextFlow();
+    static ResourceBundle cityMessageStrings = ResourceBundle.getBundle("micropolisj.CityMessages");
 
-    public MessagesPane() {
-        super(messageFlow);
-
-        MSG = ResourceBundle.getBundle("i18n/CityMessages"); // Must be done after super() called.
-        setPrefSize(360, 70);
-        setVbarPolicy(ScrollBarPolicy.ALWAYS);
+    public MessagesTextArea() {
+        setEditable(false);
     }
 
     public void appendCityMessage(MicropolisMessage message) {
-        appendMessageText(MSG.getString(message.name()));
-        // TODO adjust message color based on severity "_NEED", "_REPORT", etc.
+        appendMessageText(cityMessageStrings.getString(message.name()));
     }
 
     void appendMessageText(String messageText) {
-        Text t = new Text(messageText + "\n");
-        messageFlow.getChildren().add(t);
-        setVvalue(1.0);
-
-        // TODO. Fade previous children 0.1 until 0.5;
 //        try {
 //            StyledDocument doc = getStyledDocument();
 //            if (doc.getLength() != 0) {

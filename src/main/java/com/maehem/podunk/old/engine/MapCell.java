@@ -3,9 +3,6 @@
  *
  * Copyright (c) 2024 Mark J. Koch ( @maehem on GitHub )
  *
- * Portions of this software are Copyright (c) 2018 Henadzi Matuts and are
- * derived from their project: https://github.com/HenadziMatuts/Reuromancer
- *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,13 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-module com.maehem.podunk {
-    requires java.logging;
-    requires javafx.controls;
-    requires javafx.graphics;
-    requires java.base;
-    requires javafx.media;
-    requires java.desktop;
+package com.maehem.podunk.old.engine;
 
-    exports com.maehem.podunk;
+/**
+ *
+ * @author Mark J Koch ( @maehem on GitHub )
+ */
+public class MapCell {
+
+    public final int x;
+    public final int y;
+
+    public int character = 0;
+    public boolean zone = false;
+    public boolean animate = true;
+    public boolean bull = false;
+    public boolean burnable = false;
+    public boolean cond = false;
+    public boolean power = false;
+
+    public MapCell(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+
 }

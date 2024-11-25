@@ -5,36 +5,32 @@
 // MicropolisJ is free software; you can redistribute it and/or modify
 // it under the terms of the GNU GPLv3, with additional terms.
 // See the README file, included in this distribution, for details.
-
 package com.maehem.podunk.engine;
 
 import java.util.Random;
-import static com.maehem.podunk.engine.TileConstants.*;
 
-public abstract class TileBehavior
-{
-	protected final Micropolis city;
-	protected final Random PRNG;
-	int xpos;
-	int ypos;
-	int tile;
+public abstract class TileBehavior {
 
-	protected TileBehavior(Micropolis city)
-	{
-		this.city = city;
-		this.PRNG = city.PRNG;
-	}
+    protected final Micropolis city;
+    protected final Random PRNG;
+    int xpos;
+    int ypos;
+    int tile;
 
-	public final void processTile(int xpos, int ypos)
-	{
-		this.xpos = xpos;
-		this.ypos = ypos;
-		this.tile = city.getTile(xpos, ypos);
-		apply();
-	}
+    protected TileBehavior(Micropolis city) {
+        this.city = city;
+        this.PRNG = city.PRNG;
+    }
 
-	/**
-	 * Activate the tile identified by xpos and ypos properties.
-	 */
-	public abstract void apply();
+    public final void processTile(int xpos, int ypos) {
+        this.xpos = xpos;
+        this.ypos = ypos;
+        this.tile = city.getTile(xpos, ypos);
+        apply();
+    }
+
+    /**
+     * Activate the tile identified by xpos and ypos properties.
+     */
+    public abstract void apply();
 }

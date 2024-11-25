@@ -5,465 +5,529 @@
 // MicropolisJ is free software; you can redistribute it and/or modify
 // it under the terms of the GNU GPLv3, with additional terms.
 // See the README file, included in this distribution, for details.
+package com.maehem.podunk.gui;
 
-package micropolisj.gui;
+import com.maehem.podunk.engine.CityLocation;
+import com.maehem.podunk.engine.CityRect;
+import com.maehem.podunk.engine.MapListener;
+import com.maehem.podunk.engine.MapState;
+import com.maehem.podunk.engine.Micropolis;
+import com.maehem.podunk.engine.MicropolisTool;
+import com.maehem.podunk.engine.Sprite;
+import com.maehem.podunk.engine.ToolPreview;
+import com.maehem.podunk.logging.Logging;
+import java.util.HashSet;
+import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.geometry.Dimension2D;
+import javafx.geometry.Point2D;
+import javafx.scene.Node;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.TilePane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.util.Duration;
 
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.image.*;
-import java.net.URL;
-import java.util.*;
-import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.Timer;
+public class MicropolisDrawingArea extends Pane
+        implements MapListener {
 
-import micropolisj.engine.*;
-import static micropolisj.engine.TileConstants.*;
-import static micropolisj.gui.ColorParser.parseColor;
+    public static final Logger LOGGER = Logging.LOGGER;
+    private final ResourceBundle MSG;
 
-public class MicropolisDrawingArea extends JComponent
-	implements Scrollable, MapListener
-{
-	Micropolis m;
-	boolean blinkUnpoweredZones = true;
-	HashSet<Point> unpoweredZones = new HashSet<Point>();
-	boolean blink;
-	Timer blinkTimer;
-	ToolCursor toolCursor;
-	ToolPreview toolPreview;
-	int shakeStep;
+    Micropolis m;
+    boolean blinkUnpoweredZones = true;
+    HashSet<Point2D> unpoweredZones = new HashSet<>();
+    boolean blink;
+    Timeline blinkTimer;
+    ToolCursor toolCursor;
+    ToolPreview toolPreview;
+    int shakeStep;
 
-	static final Dimension PREFERRED_VIEWPORT_SIZE = new Dimension(640,640);
-	static final ResourceBundle strings = MainWindow.strings;
+    static final Dimension2D PREFERRED_VIEWPORT_SIZE = new Dimension2D(640, 640);
+    //static final ResourceBundle strings = MainWindow.strings;
 
-	static final int DEFAULT_TILE_SIZE = 16;
-	TileImages tileImages;
-	int TILE_WIDTH;
-	int TILE_HEIGHT;
-	int dragX, dragY;
-	boolean dragging;
+    private final TilePane tilePane = new TilePane();
+    private final Pane spritePane = new Pane();
 
-	public MicropolisDrawingArea(Micropolis engine)
-	{
-		this.m = engine;
-		selectTileSize(DEFAULT_TILE_SIZE);
-		m.addMapListener(this);
+    static final int DEFAULT_TILE_SIZE = 16;
+    TileImages tileImages;
+    int TILE_WIDTH;
+    int TILE_HEIGHT;
+    int dragX, dragY;
+    boolean dragging;
 
-		addAncestorListener(new AncestorListener() {
-		public void ancestorAdded(AncestorEvent evt) {
-			startBlinkTimer();
-		}
-		public void ancestorRemoved(AncestorEvent evt) {
-			stopBlinkTimer();
-		}
-		public void ancestorMoved(AncestorEvent evt) {}
-		});
-		
-		addMouseListener(new MouseListener() {
-			
-			@Override
-			public void mousePressed(MouseEvent e) {
-				if(e.getButton()==MouseEvent.BUTTON2)
-					startDrag(e.getX(), e.getY());
-			}
-			
-			@Override
-			public void mouseReleased(MouseEvent e) {
-				if(e.getButton()==MouseEvent.BUTTON2)
-					endDrag(e.getX(), e.getY());
-			}
-			
-			@Override
-			public void mouseEntered(MouseEvent e) {
-			}
-			
-			@Override
-			public void mouseExited(MouseEvent e) {
-			}
-			
-			@Override
-			public void mouseClicked(MouseEvent e) {
-			}
-		});
-		
-		addMouseMotionListener(new MouseMotionListener() {
-			
-			@Override
-			public void mouseMoved(MouseEvent e) {
-			}
-			
-			@Override
-			public void mouseDragged(MouseEvent e) {
-				if(dragging)
-					continueDrag(e.getX(), e.getY());
-			}
-		});
-	}
+    public MicropolisDrawingArea(Micropolis engine) {
+        getChildren().addAll(tilePane, spritePane);
 
-	public void selectTileSize(int newTileSize)
-	{
-		tileImages = TileImages.getInstance(newTileSize);
-		TILE_WIDTH = tileImages.TILE_WIDTH;
-		TILE_HEIGHT = tileImages.TILE_HEIGHT;
-		revalidate();
-	}
+        MSG = ResourceBundle.getBundle("i18n/GuiStrings"); // Must be done after super() called.
+        this.m = engine;
+        selectTileSize(DEFAULT_TILE_SIZE);
+        tilePane.setPrefColumns(m.getWidth());
+        tilePane.setMinSize(m.getWidth() * TILE_WIDTH, m.getHeight() * TILE_HEIGHT);
+        spritePane.setMinSize(m.getWidth() * TILE_WIDTH, m.getHeight() * TILE_HEIGHT);
+        spritePane.setOpacity(0.5);
+        m.addMapListener(this);
+        addMouseScrolling(this);
+        setOnMouseClicked((t) -> {
+            LOGGER.log(Level.SEVERE, "Mouse Click at: {0},{1}", new Object[]{(int) t.getX() / TILE_WIDTH, (int) t.getY() / TILE_HEIGHT});
+        });
 
-	public int getTileSize()
-	{
-		return TILE_WIDTH;
-	}
+        Timeline timeline = new Timeline(
+                new KeyFrame(Duration.seconds(0.7), evt -> cellsUnpoweredStatus(false)),
+                new KeyFrame(Duration.seconds(1.4), evt -> cellsUnpoweredStatus(true))
+        );
 
-	public CityLocation getCityLocation(int x, int y)
-	{
-		return new CityLocation(x / TILE_WIDTH, y / TILE_HEIGHT);
-	}
+        timeline.setCycleCount(Animation.INDEFINITE);
+        timeline.play();
 
-	@Override
-	public Dimension getPreferredSize()
-	{
-		assert this.m != null;
+        //        addAncestorListener(new AncestorListener() {
+        //            public void ancestorAdded(AncestorEvent evt) {
+        //                startBlinkTimer();
+        //            }
+        //
+        //            public void ancestorRemoved(AncestorEvent evt) {
+        //                stopBlinkTimer();
+        //            }
+        //
+        //            public void ancestorMoved(AncestorEvent evt) {
+        //            }
+        //        });
+        //        addMouseListener(new MouseListener() {
+        //            @Override
+        //            public void mousePressed(MouseEvent e) {
+        //                if (e.getButton() == MouseEvent.BUTTON2) {
+        //                    startDrag(e.getX(), e.getY());
+        //                }
+        //            }
+        //            @Override
+        //            public void mouseReleased(MouseEvent e) {
+        //                if (e.getButton() == MouseEvent.BUTTON2) {
+        //                    endDrag(e.getX(), e.getY());
+        //                }
+        //            }
+        //
+        //            @Override
+        //            public void mouseEntered(MouseEvent e) {
+        //            }
+        //
+        //            @Override
+        //            public void mouseExited(MouseEvent e) {
+        //            }
+        //
+        //            @Override
+        //            public void mouseClicked(MouseEvent e) {
+        //            }
+        //        });
+        //        addMouseMotionListener(new MouseMotionListener() {
+        //
+        //            @Override
+        //            public void mouseMoved(MouseEvent e) {
+        //            }
+        //
+        //            @Override
+        //            public void mouseDragged(MouseEvent e) {
+        //                if (dragging) {
+        //                    continueDrag(e.getX(), e.getY());
+        //                }
+        //            }
+        //        });
+    }
 
-		return new Dimension(TILE_WIDTH*m.getWidth(),TILE_HEIGHT*m.getHeight());
-	}
+    private void addMouseScrolling(Node node) {
+        node.setOnScroll((ScrollEvent event) -> {
+            // Adjust the zoom factor as per your requirement
+            double zoomFactor = 1.05;
+            double deltaY = event.getDeltaY();
+            if (deltaY < 0) {
+                zoomFactor = 2.0 - zoomFactor;
+            }
+            node.setScaleX(node.getScaleX() * zoomFactor);
+            node.setScaleY(node.getScaleY() * zoomFactor);
+        });
+    }
 
-	public void setEngine(Micropolis newEngine)
-	{
-		assert newEngine != null;
+    public final void selectTileSize(int newTileSize) {
+        tileImages = TileImages.getInstance(newTileSize);
+        TILE_WIDTH = tileImages.TILE_WIDTH;
+        TILE_HEIGHT = tileImages.TILE_HEIGHT;
+        //revalidate();
+        generateMapView();
+    }
 
-		if (this.m != null) { //old engine
-			this.m.removeMapListener(this);
-		}
-		this.m = newEngine;
-		if (this.m != null) { //new engine
-			this.m.addMapListener(this);
-		}
+    public int getTileSize() {
+        return TILE_WIDTH;
+    }
 
-		// size may have changed
-		invalidate();
-		repaint();
-	}
+    public CityLocation getCityLocation(int x, int y) {
+        return new CityLocation(x / TILE_WIDTH, y / TILE_HEIGHT);
+    }
 
-	void drawSprite(Graphics gr, Sprite sprite)
-	{
-		assert sprite.isVisible();
+    protected Dimension2D getPreferredSize() {
+        assert this.m != null;
 
-		Point p = new Point(
-			(sprite.x + sprite.offx) * TILE_WIDTH / 16,
-			(sprite.y + sprite.offy) * TILE_HEIGHT / 16
-			);
+        return new Dimension2D(TILE_WIDTH * m.getWidth(), TILE_HEIGHT * m.getHeight());
+    }
 
-		Image img = tileImages.getSpriteImage(sprite.kind, sprite.frame-1);
-		if (img != null) {
-			gr.drawImage(img, p.x, p.y, null);
-		}
-		else {
-			gr.setColor(Color.RED);
-			gr.fillRect(p.x, p.y, 16, 16);
-			gr.setColor(Color.WHITE);
-			gr.drawString(Integer.toString(sprite.frame-1),p.x,p.y);
-		}
-	}
+    public void setEngine(Micropolis newEngine) {
+        assert newEngine != null;
+        LOGGER.log(Level.SEVERE, "Micropolis Drawing Area: setEngine() called.");
 
-	public void paintComponent(Graphics gr)
-	{
-		final int width = m.getWidth();
-		final int height = m.getHeight();
+        if (this.m != null) { //old engine
+            this.m.removeMapListener(this);
+        }
+        this.m = newEngine;
+        if (this.m != null) { //new engine
+            this.m.addMapListener(this);
+        }
 
-		Rectangle clipRect = gr.getClipBounds();
-		int minX = Math.max(0, clipRect.x / TILE_WIDTH);
-		int minY = Math.max(0, clipRect.y / TILE_HEIGHT);
-		int maxX = Math.min(width, 1 + (clipRect.x + clipRect.width-1) / TILE_WIDTH);
-		int maxY = Math.min(height, 1 + (clipRect.y + clipRect.height-1) / TILE_HEIGHT);
+        // size may have changed
+        //invalidate();
+        //repaint();
+        generateMapView();
+    }
 
-		for (int y = minY; y < maxY; y++)
-		{
-			for (int x = maxX-1; x >= minX; x--)
-			{
-				int cell = m.getTile(x,y);
-				if (blinkUnpoweredZones &&
-					isZoneCenter(cell) &&
-					!m.isTilePowered(x, y))
-				{
-					unpoweredZones.add(new Point(x,y));
-					if (blink)
-						cell = LIGHTNINGBOLT;
-				}
+    private void generateMapView() {
+        LOGGER.log(Level.SEVERE, "Generate Map View.");
+        tilePane.getChildren().clear();
+        ImageView im0 = tileImages.getTileImage(0);
+        setPrefSize(m.getWidth() * im0.getFitWidth(), m.getHeight() * im0.getFitHeight());
+        int i = 0;
+        for (int y = 0; y < m.getHeight(); y++) {
+            for (int x = 0; x < m.getWidth(); x++) {
+                LOGGER.log(Level.FINEST, "Create tile at: {0},{1} == {2}", new Object[]{x, y, m.getTileRaw(x, y)});
+                tilePane.getChildren().add(new CellView(tileImages, m.getTileRaw(x, y), x, y));
+                //tilePane.getChildren().add(new CellView(tileImages, (char) 7));
+            }
+        }
+        spritePane.getChildren().clear();
+        for (Sprite sprite : m.allSprites()) {
+            SpriteView sv = new SpriteView(m, sprite);
+            spritePane.getChildren().add(sv);
+        }
+        layout();
+    }
 
-				if (toolPreview != null) {
-					int c = toolPreview.getTile(x, y);
-					if (c != CLEAR) {
-						cell = c;
-					}
-				}
+    void cellsUnpoweredStatus(boolean b) {
+        LOGGER.log(Level.FINEST, "Cells Unpowered Update: " + String.valueOf(b));
+        tilePane.getChildren().forEach((t) -> {
+            if (t instanceof CellView cv) {
+                cv.setBlinkUnpowered(!m.hasPower(cv.x, cv.y));
+            }
+        });
+    }
 
-				gr.drawImage(tileImages.getTileImage(cell),
-					x*TILE_WIDTH + (shakeStep != 0 ? getShakeModifier(y) : 0),
-					y*TILE_HEIGHT,
-					null);
-			}
-		}
+//    void drawSprite(Graphics gr, Sprite sprite) {
+//        assert sprite.isVisible();
+//
+//        Point2D p = new Point2D(
+//                (sprite.x + sprite.offx) * TILE_WIDTH / 16,
+//                (sprite.y + sprite.offy) * TILE_HEIGHT / 16
+//        );
+//
+//        Image img = tileImages.getSpriteImage(sprite.kind, sprite.frame - 1);
+//        if (img != null) {
+//            gr.drawImage(img, p.x, p.y, null);
+//        } else {
+//            gr.setColor(Color.RED);
+//            gr.fillRect(p.x, p.y, 16, 16);
+//            gr.setColor(Color.WHITE);
+//            gr.drawString(Integer.toString(sprite.frame - 1), p.x, p.y);
+//        }
+//    }
+//    public void paintComponent(Graphics gr) {
+//        final int width = m.getWidth();
+//        final int height = m.getHeight();
+//
+//        Rectangle clipRect = gr.getClipBounds();
+//        int minX = Math.max(0, clipRect.x / TILE_WIDTH);
+//        int minY = Math.max(0, clipRect.y / TILE_HEIGHT);
+//        int maxX = Math.min(width, 1 + (clipRect.x + clipRect.width - 1) / TILE_WIDTH);
+//        int maxY = Math.min(height, 1 + (clipRect.y + clipRect.height - 1) / TILE_HEIGHT);
+//
+//        for (int y = minY; y < maxY; y++) {
+//            for (int x = maxX - 1; x >= minX; x--) {
+//                int cell = m.getTile(x, y);
+//                if (blinkUnpoweredZones
+//                        && isZoneCenter(cell)
+//                        && !m.isTilePowered(x, y)) {
+//                    unpoweredZones.add(new Point(x, y));
+//                    if (blink) {
+//                        cell = LIGHTNINGBOLT;
+//                    }
+//                }
+//
+//                if (toolPreview != null) {
+//                    int c = toolPreview.getTile(x, y);
+//                    if (c != CLEAR) {
+//                        cell = c;
+//                    }
+//                }
+//
+//                gr.drawImage(tileImages.getTileImage(cell),
+//                        x * TILE_WIDTH + (shakeStep != 0 ? getShakeModifier(y) : 0),
+//                        y * TILE_HEIGHT,
+//                        null);
+//            }
+//        }
+//
+//        for (Sprite sprite : m.allSprites()) {
+//            if (sprite.isVisible()) {
+//                drawSprite(gr, sprite);
+//            }
+//        }
+//
+//        if (toolCursor != null) {
+//            int x0 = toolCursor.rect.x * TILE_WIDTH;
+//            int x1 = (toolCursor.rect.x + toolCursor.rect.width) * TILE_WIDTH;
+//            int y0 = toolCursor.rect.y * TILE_HEIGHT;
+//            int y1 = (toolCursor.rect.y + toolCursor.rect.height) * TILE_HEIGHT;
+//
+//            gr.setColor(Color.BLACK);
+//            gr.fillRect(x0 - 1, y0 - 1, x1 - (x0 - 1), 1);
+//            gr.fillRect(x0 - 1, y0, 1, y1 - y0);
+//            gr.fillRect(x0 - 3, y1 + 3, x1 + 4 - (x0 - 3), 1);
+//            gr.fillRect(x1 + 3, y0 - 3, 1, y1 + 3 - (y0 - 3));
+//
+//            gr.setColor(Color.WHITE);
+//            gr.fillRect(x0 - 4, y0 - 4, x1 + 4 - (x0 - 4), 1);
+//            gr.fillRect(x0 - 4, y0 - 3, 1, (y1 + 4) - (y0 - 3));
+//            gr.fillRect(x0 - 1, y1, x1 + 1 - (x0 - 1), 1);
+//            gr.fillRect(x1, y0 - 1, 1, y1 - (y0 - 1));
+//
+//            gr.setColor(toolCursor.borderColor);
+//            gr.fillRect(x0 - 3, y0 - 3, x1 + 1 - (x0 - 3), 2);
+//            gr.fillRect(x1 + 1, y0 - 3, 2, y1 + 1 - (y0 - 3));
+//            gr.fillRect(x0 - 1, y1 + 1, x1 + 3 - (x0 - 1), 2);
+//            gr.fillRect(x0 - 3, y0 - 1, 2, y1 + 3 - (y0 - 1));
+//
+//            if (toolCursor.fillColor != null) {
+//                gr.setColor(toolCursor.fillColor);
+//                gr.fillRect(x0, y0, x1 - x0, y1 - y0);
+//            }
+//        }
+//    }
+    static class ToolCursor {
 
-		for (Sprite sprite : m.allSprites())
-		{
-			if (sprite.isVisible())
-			{
-				drawSprite(gr, sprite);
-			}
-		}
+        CityRect rect;
+        Color borderColor;
+        Color fillColor;
+    }
 
-		if (toolCursor != null)
-		{
-			int x0 = toolCursor.rect.x * TILE_WIDTH;
-			int x1 = (toolCursor.rect.x + toolCursor.rect.width) * TILE_WIDTH;
-			int y0 = toolCursor.rect.y * TILE_HEIGHT;
-			int y1 = (toolCursor.rect.y + toolCursor.rect.height) * TILE_HEIGHT;
+    public void setToolCursor(CityRect newRect, MicropolisTool tool) {
+        ToolCursor tp = new ToolCursor();
+        tp.rect = newRect;
+        tp.borderColor = ColorParser.parseColor(
+                MSG.containsKey("tool." + tool.name() + ".border")
+                ? MSG.getString("tool." + tool.name() + ".border")
+                : MSG.getString("tool.*.border")
+        );
+        tp.fillColor = ColorParser.parseColor(
+                MSG.containsKey("tool." + tool.name() + ".bgcolor")
+                ? MSG.getString("tool." + tool.name() + ".bgcolor")
+                : MSG.getString("tool.*.bgcolor")
+        );
+        setToolCursor(tp);
+    }
 
-			gr.setColor(Color.BLACK);
-			gr.fillRect(x0-1, y0-1, x1-(x0-1), 1);
-			gr.fillRect(x0-1, y0, 1, y1-y0);
-			gr.fillRect(x0-3, y1+3, x1+4-(x0-3), 1);
-			gr.fillRect(x1+3, y0-3, 1, y1+3-(y0-3));
+    public void setToolCursor(ToolCursor newCursor) {
+//        if (toolCursor == newCursor) {
+//            return;
+//        }
+//        if (toolCursor != null && toolCursor.equals(newCursor)) {
+//            return;
+//        }
+//
+//        if (toolCursor != null) {
+//            repaint(new Rectangle(
+//                    toolCursor.rect.x * TILE_WIDTH - 4,
+//                    toolCursor.rect.y * TILE_HEIGHT - 4,
+//                    toolCursor.rect.width * TILE_WIDTH + 8,
+//                    toolCursor.rect.height * TILE_HEIGHT + 8
+//            ));
+//        }
+//        toolCursor = newCursor;
+//        if (toolCursor != null) {
+//            repaint(new Rectangle(
+//                    toolCursor.rect.x * TILE_WIDTH - 4,
+//                    toolCursor.rect.y * TILE_HEIGHT - 4,
+//                    toolCursor.rect.width * TILE_WIDTH + 8,
+//                    toolCursor.rect.height * TILE_HEIGHT + 8
+//            ));
+//        }
+    }
 
-			gr.setColor(Color.WHITE);
-			gr.fillRect(x0-4, y0-4, x1+4-(x0-4), 1);
-			gr.fillRect(x0-4, y0-3, 1, (y1+4)-(y0-3));
-			gr.fillRect(x0-1, y1, x1+1-(x0-1), 1);
-			gr.fillRect(x1, y0-1, 1, y1-(y0-1));
+    public void setToolPreview(ToolPreview newPreview) {
+//        if (toolPreview != null) {
+//            CityRect b = toolPreview.getBounds();
+//            Rectangle r = new Rectangle(
+//                    b.x * TILE_WIDTH,
+//                    b.y * TILE_HEIGHT,
+//                    b.width * TILE_WIDTH,
+//                    b.height * TILE_HEIGHT
+//            );
+//            repaint(r);
+//        }
+//
+//        toolPreview = newPreview;
+//        if (toolPreview != null) {
+//
+//            CityRect b = toolPreview.getBounds();
+//            Rectangle r = new Rectangle(
+//                    b.x * TILE_WIDTH,
+//                    b.y * TILE_HEIGHT,
+//                    b.width * TILE_WIDTH,
+//                    b.height * TILE_HEIGHT
+//            );
+//            repaint(r);
+//        }
+    }
 
-			gr.setColor(toolCursor.borderColor);
-			gr.fillRect(x0-3, y0-3, x1+1-(x0-3), 2);
-			gr.fillRect(x1+1, y0-3, 2, y1+1-(y0-3));
-			gr.fillRect(x0-1, y1+1, x1+3-(x0-1), 2);
-			gr.fillRect(x0-3, y0-1, 2, y1+3-(y0-1));
+//    //implements Scrollable
+//    public Dimension getPreferredScrollableViewportSize() {
+//        return PREFERRED_VIEWPORT_SIZE;
+//    }
+//
+//    //implements Scrollable
+//    public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+//        if (orientation == SwingConstants.VERTICAL) {
+//            return visibleRect.height;
+//        } else {
+//            return visibleRect.width;
+//        }
+//    }
+//    //implements Scrollable
+//    public boolean getScrollableTracksViewportWidth() {
+//        return false;
+//    }
+//
+//    //implements Scrollable
+//    public boolean getScrollableTracksViewportHeight() {
+//        return false;
+//    }
+//    //implements Scrollable
+//    public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+//        if (orientation == SwingConstants.VERTICAL) {
+//            return TILE_HEIGHT * 3;
+//        } else {
+//            return TILE_WIDTH * 3;
+//        }
+//    }
+//    private Rectangle getSpriteBounds(Sprite sprite, int x, int y) {
+//        return new Rectangle(
+//                (x + sprite.offx) * TILE_WIDTH / 16,
+//                (y + sprite.offy) * TILE_HEIGHT / 16,
+//                sprite.width * TILE_WIDTH / 16,
+//                sprite.height * TILE_HEIGHT / 16
+//        );
+//    }
+    public Rectangle getTileBounds(int xpos, int ypos) {
+        return new Rectangle(xpos * TILE_WIDTH, ypos * TILE_HEIGHT,
+                TILE_WIDTH, TILE_HEIGHT);
+    }
 
-			if (toolCursor.fillColor != null) {
-				gr.setColor(toolCursor.fillColor);
-				gr.fillRect(x0,y0,x1-x0,y1-y0);
-			}
-		}
-	}
+    //implements MapListener
+    @Override
+    public void mapOverlayDataChanged(MapState overlayDataType) {
+    }
 
-	static class ToolCursor
-	{
-		CityRect rect;
-		Color borderColor;
-		Color fillColor;
-	}
+    //implements MapListener
+    @Override
+    public void spriteMoved(Sprite sprite) {
+//        repaint(getSpriteBounds(sprite, sprite.lastX, sprite.lastY));
+//        repaint(getSpriteBounds(sprite, sprite.x, sprite.y));
+    }
 
-	public void setToolCursor(CityRect newRect, MicropolisTool tool)
-	{
-		ToolCursor tp = new ToolCursor();
-		tp.rect = newRect;
-		tp.borderColor = parseColor(
-			strings.containsKey("tool."+tool.name()+".border") ?
-			strings.getString("tool."+tool.name()+".border") :
-			strings.getString("tool.*.border")
-			);
-		tp.fillColor = parseColor(
-			strings.containsKey("tool."+tool.name()+".bgcolor") ?
-			strings.getString("tool."+tool.name()+".bgcolor") :
-			strings.getString("tool.*.bgcolor")
-			);
-		setToolCursor(tp);
-	}
+    //implements MapListener
+    @Override
+    public void tileChanged(int xpos, int ypos) {
+        //repaint(getTileBounds(xpos, ypos));
 
-	public void setToolCursor(ToolCursor newCursor)
-	{
-		if (toolCursor == newCursor)
-			return;
-		if (toolCursor != null && toolCursor.equals(newCursor))
-			return;
+        tilePane.getChildren().forEach((cell) -> {
+            if (cell instanceof CellView cv) {
+                cv.updateData(m.getTileRaw(xpos, ypos));
+                if (cv.x == xpos && cv.y == ypos) {
+                    if (m.isTilePowered(xpos, ypos)) {
+                        cv.setBlinkUnpowered(true);
+                    }
+                }
+            }
+        });
+    }
 
-		if (toolCursor != null)
-		{
-			repaint(new Rectangle(
-				toolCursor.rect.x*TILE_WIDTH - 4,
-				toolCursor.rect.y*TILE_HEIGHT - 4,
-				toolCursor.rect.width*TILE_WIDTH + 8,
-				toolCursor.rect.height*TILE_HEIGHT + 8
-				));
-		}
-		toolCursor = newCursor;
-		if (toolCursor != null)
-		{
-			repaint(new Rectangle(
-				toolCursor.rect.x*TILE_WIDTH - 4,
-				toolCursor.rect.y*TILE_HEIGHT - 4,
-				toolCursor.rect.width*TILE_WIDTH + 8,
-				toolCursor.rect.height*TILE_HEIGHT + 8
-				));
-		}
-	}
+    //implements MapListener
+    @Override
+    public void wholeMapChanged() {
+        //repaint();
+    }
 
-	public void setToolPreview(ToolPreview newPreview)
-	{
-		if (toolPreview != null) {
-			CityRect b = toolPreview.getBounds();
-			Rectangle r = new Rectangle(
-				b.x*TILE_WIDTH,
-				b.y*TILE_HEIGHT,
-				b.width*TILE_WIDTH,
-				b.height*TILE_HEIGHT
-				);
-			repaint(r);
-		}
+    protected void startDrag(int x, int y) {
+        dragging = true;
+        dragX = x;
+        dragY = y;
+    }
 
-		toolPreview = newPreview;
-		if (toolPreview != null) {
+    protected void endDrag(int x, int y) {
+        dragging = false;
+    }
 
-			CityRect b = toolPreview.getBounds();
-			Rectangle r = new Rectangle(
-				b.x*TILE_WIDTH,
-				b.y*TILE_HEIGHT,
-				b.width*TILE_WIDTH,
-				b.height*TILE_HEIGHT
-				);
-			repaint(r);
-		}
-	}
+    protected void continueDrag(int x, int y) {
+//        int dx = x - dragX;
+//        int dy = y - dragY;
+//        JScrollPane js = (JScrollPane) getParent().getParent();
+//        js.getHorizontalScrollBar().setValue(
+//                js.getHorizontalScrollBar().getValue() - dx);
+//        js.getVerticalScrollBar().setValue(
+//                js.getVerticalScrollBar().getValue() - dy);
+    }
 
-	//implements Scrollable
-	public Dimension getPreferredScrollableViewportSize()
-	{
-		return PREFERRED_VIEWPORT_SIZE;
-	}
+    void doBlink() {
+        if (!unpoweredZones.isEmpty()) {
+            blink = !blink;
+            for (Point2D loc : unpoweredZones) {
+                //repaint(getTileBounds((int) loc.getX(), (int) loc.getY()));
+            }
+            unpoweredZones.clear();
+        }
+    }
 
-	//implements Scrollable
-	public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction)
-	{
-		if (orientation == SwingConstants.VERTICAL)
-			return visibleRect.height;
-		else
-			return visibleRect.width;
-	}
+    void startBlinkTimer() {
+        blinkTimer = new Timeline(new KeyFrame(Duration.seconds(0.5), evt -> doBlink()));
+        blinkTimer.setCycleCount(Animation.INDEFINITE);
+        blinkTimer.play();
 
-	//implements Scrollable
-	public boolean getScrollableTracksViewportWidth()
-	{
-		return false;
-	}
+        assert blinkTimer == null;
 
-	//implements Scrollable
-	public boolean getScrollableTracksViewportHeight()
-	{
-		return false;
-	}
+//        ActionListener callback = new ActionListener() {
+//            public void actionPerformed(ActionEvent evt) {
+//                doBlink();
+//            }
+//        };
+//
+//        blinkTimer = new Timer(500, callback);
+//        blinkTimer.start();
+    }
 
-	//implements Scrollable
-	public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction)
-	{
-		if (orientation == SwingConstants.VERTICAL)
-			return TILE_HEIGHT * 3;
-		else
-			return TILE_WIDTH * 3;
-	}
+    void stopBlinkTimer() {
+        if (blinkTimer != null) {
+            blinkTimer.stop();
+            blinkTimer = null;
+        }
+    }
 
-	private Rectangle getSpriteBounds(Sprite sprite, int x, int y)
-	{
-		return new Rectangle(
-			(x+sprite.offx)*TILE_WIDTH/16,
-			(y+sprite.offy)*TILE_HEIGHT/16,
-			sprite.width*TILE_WIDTH/16,
-			sprite.height*TILE_HEIGHT/16
-			);
-	}
+    protected void shake(int i) {
+        shakeStep = i;
+        //repaint();
+    }
 
-	public Rectangle getTileBounds(int xpos, int ypos)
-	{
-		return new Rectangle(xpos*TILE_WIDTH, ypos * TILE_HEIGHT,
-			TILE_WIDTH, TILE_HEIGHT);
-	}
+    static final int SHAKE_STEPS = 40;
 
-	//implements MapListener
-	public void mapOverlayDataChanged(MapState overlayDataType)
-	{
-	}
-
-	//implements MapListener
-	public void spriteMoved(Sprite sprite)
-	{
-		repaint(getSpriteBounds(sprite, sprite.lastX, sprite.lastY));
-		repaint(getSpriteBounds(sprite, sprite.x, sprite.y));
-	}
-
-	//implements MapListener
-	public void tileChanged(int xpos, int ypos)
-	{
-		repaint(getTileBounds(xpos, ypos));
-	}
-
-	//implements MapListener
-	public void wholeMapChanged()
-	{
-		repaint();
-	}
-
-	protected void startDrag(int x, int y)
-	{
-		dragging = true;
-		dragX = x;
-		dragY = y;
-	}
-	protected void endDrag(int x, int y)
-	{
-		dragging = false;
-	}
-	protected void continueDrag(int x, int y)
-	{
-		int dx = x - dragX;		
-		int dy = y - dragY;
-		JScrollPane js = (JScrollPane)getParent().getParent();
-		js.getHorizontalScrollBar().setValue(
-				js.getHorizontalScrollBar().getValue()-dx);
-		js.getVerticalScrollBar().setValue(
-				js.getVerticalScrollBar().getValue()-dy);
-	}
-	
-	void doBlink()
-	{
-		if (!unpoweredZones.isEmpty())
-		{
-			blink = !blink;
-			for (Point loc : unpoweredZones)
-			{
-				repaint(getTileBounds(loc.x, loc.y));
-			}
-			unpoweredZones.clear();
-		}
-	}
-
-	void startBlinkTimer()
-	{
-		assert blinkTimer == null;
-
-		ActionListener callback = new ActionListener() {
-		public void actionPerformed(ActionEvent evt)
-		{
-			doBlink();
-		}
-		};
-
-		blinkTimer = new Timer(500, callback);
-		blinkTimer.start();
-	}
-
-	void stopBlinkTimer()
-	{
-		if (blinkTimer != null) {
-			blinkTimer.stop();
-			blinkTimer = null;
-		}
-	}
-
-	void shake(int i)
-	{
-		shakeStep = i;
-		repaint();
-	}
-
-	static final int SHAKE_STEPS = 40;
-	int getShakeModifier(int row)
-	{
-		return (int)Math.round(4.0 * Math.sin((double)(shakeStep+row/2)/2.0));
-	}
+    int getShakeModifier(int row) {
+        return (int) Math.round(4.0 * Math.sin((double) (shakeStep + row / 2) / 2.0));
+    }
 }

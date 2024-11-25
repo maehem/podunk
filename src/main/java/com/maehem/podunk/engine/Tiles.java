@@ -18,7 +18,7 @@ import java.util.*;
 public class Tiles
 {
 	static final Charset UTF8 = Charset.forName("UTF-8");
-	static TileSpec [] tiles;
+    public static TileSpec[] tiles;
 	static Map<String,TileSpec> tilesByName = new HashMap<String,TileSpec>();
 	static {
 		try {
@@ -38,8 +38,8 @@ public class Tiles
 		Properties tilesRc = new Properties();
 		tilesRc.load(
 			new InputStreamReader(
-				Tiles.class.getResourceAsStream("/tiles.rc"),
-				UTF8
+                                Tiles.class.getResourceAsStream("/graphics/tiles.rc"),
+                            				UTF8
 				)
 			);
 
